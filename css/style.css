@@ -1,0 +1,274 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    background-color: #000;
+    font-family: 'Arial', sans-serif;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+}
+
+#game-container {
+    position: relative;
+    width: 480px;
+    height: 720px;
+    box-shadow: 0 0 30px rgba(0, 150, 255, 0.5);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#gameCanvas {
+    display: block;
+    background: linear-gradient(to bottom, #000428, #004e92);
+}
+
+#ui-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+#ui-overlay .menu {
+    pointer-events: auto;
+}
+
+.menu {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 20, 0.9);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    color: #fff;
+    text-align: center;
+    z-index: 100;
+}
+
+.menu.hidden {
+    display: none;
+}
+
+.menu h1 {
+    font-size: 3rem;
+    margin-bottom: 10px;
+    color: #00d4ff;
+    text-shadow: 0 0 20px rgba(0, 212, 255, 0.8);
+    letter-spacing: 2px;
+}
+
+.menu h2 {
+    font-size: 2.5rem;
+    margin-bottom: 20px;
+    letter-spacing: 2px;
+}
+
+.game-over-title {
+    color: #ff4444;
+    text-shadow: 0 0 20px rgba(255, 68, 68, 0.8);
+}
+
+.level-complete-title {
+    color: #44ff44;
+    text-shadow: 0 0 20px rgba(68, 255, 68, 0.8);
+}
+
+.victory-title {
+    color: #ffd700;
+    text-shadow: 0 0 20px rgba(255, 215, 0, 0.8);
+}
+
+.menu .subtitle {
+    font-size: 1.2rem;
+    color: #aaa;
+    margin-bottom: 30px;
+}
+
+.controls-info {
+    margin-top: 30px;
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.controls-info p {
+    margin: 5px 0;
+}
+
+.btn {
+    background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+    color: #000;
+    border: none;
+    padding: 15px 40px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border-radius: 30px;
+    cursor: pointer;
+    margin: 10px;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+}
+
+.btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 25px rgba(0, 212, 255, 0.8);
+}
+
+.btn:active {
+    transform: scale(0.98);
+}
+
+.stats {
+    margin: 20px 0 30px 0;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    width: 80%;
+}
+
+.stats p {
+    font-size: 1.1rem;
+    margin: 10px 0;
+    color: #ddd;
+}
+
+.stats span {
+    font-weight: bold;
+    color: #00d4ff;
+}
+
+/* 游戏中UI */
+#game-ui {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#game-ui.hidden {
+    display: none;
+}
+
+.hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    pointer-events: auto;
+}
+
+.hud-left, .hud-center, .hud-right {
+    display: flex;
+    flex-direction: column;
+}
+
+.hud-left {
+    align-items: flex-start;
+}
+
+.hud-center {
+    align-items: center;
+}
+
+.hud-right {
+    align-items: flex-end;
+}
+
+.health-bar, .level-progress, .score, .level {
+    color: #fff;
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+}
+
+.health-bar span, .level-progress span, .score span:first-child, .level span:first-child {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    text-shadow: 0 0 5px rgba(0, 0, 0, 0.8);
+}
+
+.health-container, .progress-container {
+    width: 120px;
+    height: 15px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.health-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff4444 0%, #ff6666 100%);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px rgba(255, 68, 68, 0.8);
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #44ff44 0%, #66ff66 100%);
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px rgba(68, 255, 68, 0.8);
+}
+
+.score span:last-child, .level span:last-child {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: #00d4ff;
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.8);
+}
+
+/* 响应式调整 */
+@media (max-width: 500px) {
+    #game-container {
+        width: 100vw;
+        height: 100vh;
+        border-radius: 0;
+    }
+    
+    .menu h1 {
+        font-size: 2rem;
+    }
+    
+    .menu h2 {
+        font-size: 1.8rem;
+    }
+    
+    .btn {
+        padding: 12px 30px;
+        font-size: 1rem;
+    }
+    
+    .stats {
+        width: 90%;
+        padding: 15px;
+    }
+    
+    .hud {
+        padding: 10px;
+    }
+    
+    .health-container, .progress-container {
+        width: 100px;
+        height: 12px;
+    }
+    
+    .score span:last-child, .level span:last-child {
+        font-size: 1.2rem;
+    }
+}

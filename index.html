@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>雷霆战机 - 竖版太空射击</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <!-- UI层 -->
+        <div id="ui-overlay">
+            <!-- 开始菜单 -->
+            <div id="start-menu" class="menu">
+                <h1>雷霆战机</h1>
+                <p class="subtitle">穿越星际，消灭敌机</p>
+                <button id="startBtn" class="btn">开始游戏</button>
+                <div class="controls-info">
+                    <p>移动鼠标控制飞机</p>
+                    <p>自动射击，消灭敌机</p>
+                </div>
+            </div>
+            
+            <!-- 游戏中UI -->
+            <div id="game-ui" class="hidden">
+                <div class="hud">
+                    <div class="hud-left">
+                        <div class="health-bar">
+                            <span>生命</span>
+                            <div class="health-container">
+                                <div id="health-fill" class="health-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hud-center">
+                        <div class="level-progress">
+                            <span>关卡进度</span>
+                            <div class="progress-container">
+                                <div id="progress-fill" class="progress-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hud-right">
+                        <div class="score">
+                            <span>得分</span>
+                            <span id="score-display">0</span>
+                        </div>
+                        <div class="level">
+                            <span>关卡</span>
+                            <span id="level-display">1</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 游戏结束菜单 -->
+            <div id="game-over-menu" class="menu hidden">
+                <h2 class="game-over-title">任务失败</h2>
+                <div class="stats">
+                    <p>最终得分: <span id="final-score">0</span></p>
+                    <p>到达关卡: <span id="final-level">1</span></p>
+                    <p>击杀敌机: <span id="enemies-killed">0</span></p>
+                </div>
+                <button id="restartBtn" class="btn">重新开始</button>
+                <button id="menuBtn" class="btn">返回主菜单</button>
+            </div>
+            
+            <!-- 关卡完成菜单 -->
+            <div id="level-complete-menu" class="menu hidden">
+                <h2 class="level-complete-title">关卡完成！</h2>
+                <div class="stats">
+                    <p>关卡得分: <span id="level-score">0</span></p>
+                    <p>当前总分: <span id="total-score">0</span></p>
+                </div>
+                <button id="nextLevelBtn" class="btn">下一关</button>
+            </div>
+            
+            <!-- 游戏胜利菜单 -->
+            <div id="victory-menu" class="menu hidden">
+                <h2 class="victory-title">恭喜通关！</h2>
+                <div class="stats">
+                    <p>最终得分: <span id="victory-score">0</span></p>
+                    <p>通关关卡: <span id="victory-level">10</span></p>
+                    <p>总击杀数: <span id="victory-kills">0</span></p>
+                </div>
+                <button id="playAgainBtn" class="btn">再玩一次</button>
+                <button id="backToMenuBtn" class="btn">返回主菜单</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="js/utils.js"></script>
+    <script src="js/entities.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>

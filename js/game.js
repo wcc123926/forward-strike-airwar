@@ -60,6 +60,7 @@ class Game {
         this.totalEnemiesKilled = 0;
         this.totalScore = 0;
         this.enemySpawnTimer = 0;
+        this.levelCompleteTriggered = false;
         
         // 鼠标位置
         this.mouseX = this.canvas.width / 2;
@@ -172,6 +173,7 @@ class Game {
         this.totalScore = 0;
         this.enemySpawnTimer = 0;
         this.screenShake = 0;
+        this.levelCompleteTriggered = false;
         
         // 重置玩家
         this.player.reset();
@@ -197,6 +199,10 @@ class Game {
         this.currentLevel++;
         this.enemiesKilled = 0;
         this.enemySpawnTimer = 0;
+        this.levelCompleteTriggered = false;
+        
+        // 重置玩家关卡得分
+        this.player.score = 0;
         
         // 清空敌人和子弹
         this.enemies = [];
@@ -390,17 +396,48 @@ class Game {
         }
     }
     
+    /**
+     * 统一处理敌机死亡逻辑
+     * 确保得分、击杀数、爆炸效果、UI更新都同步进行
+     */
+    handleEnemyDeath(enemy) {
+        // 创建爆炸效果
+        const explosionSize = enemy.type === EnemyType.SMALL ? 0.8 : 
+                             enemy.type === EnemyType.MEDIUM ? 1.2 : 
+                             enemy.type === EnemyType.LARGE ? 1.8 : 1.5;
+        this.explosions.push(new Explosion(enemy.x, enemy.y, explosionSize));
+        
+        // 增加分数和击杀数
+        const config = EnemyConfig[enemy.type];
+        this.player.score += config.score;
+        this.totalScore += config.score;
+        this.player.kills++;
+        this.enemiesKilled++;
+        this.totalEnemiesKilled++;
+        
+        // 屏幕震动
+        this.screenShake = 5;
+        
+        // 更新UI
+        this.updateUI();
+    }
+
     checkCollisions() {
         // 玩家子弹与敌人碰撞
-        for (let i = this.bullets.length - 1; i >= 0; i--) {
+        const bulletsToRemove = [];
+        const enemiesToRemove = [];
+        
+        for (let i = 0; i < this.bullets.length; i++) {
             const bullet = this.bullets[i];
             
-            for (let j = this.enemies.length - 1; j >= 0; j--) {
+            for (let j = 0; j < this.enemies.length; j++) {
                 const enemy = this.enemies[j];
+                
+                if (enemiesToRemove.indexOf(j) !== -1) continue; // 已经标记要移除了
                 
                 if (rectCollision(bullet.getCollisionRect(), enemy.getCollisionRect())) {
                     // 子弹击中敌人
-                    this.bullets.splice(i, 1);
+                    bulletsToRemove.push(i);
                     
                     // 敌人受伤
                     const isDead = enemy.takeDamage(bullet.damage);
@@ -409,36 +446,31 @@ class Game {
                     this.hitEffects.push(new HitEffect(bullet.x, bullet.y));
                     
                     if (isDead) {
-                        // 敌人死亡
-                        this.enemies.splice(j, 1);
-                        this.explosions.push(new Explosion(enemy.x, enemy.y, enemy.type === EnemyType.SMALL ? 0.8 : 
-                                                             enemy.type === EnemyType.MEDIUM ? 1.2 : 
-                                                             enemy.type === EnemyType.LARGE ? 1.8 : 1.5));
-                        
-                        // 增加分数和击杀数
-                        const config = EnemyConfig[enemy.type];
-                        this.player.score += config.score;
-                        this.totalScore += config.score;
-                        this.player.kills++;
-                        this.enemiesKilled++;
-                        this.totalEnemiesKilled++;
-                        
-                        // 屏幕震动
-                        this.screenShake = 5;
-                        
-                        // 更新UI
-                        this.updateUI();
+                        enemiesToRemove.push(j);
+                        this.handleEnemyDeath(enemy);
                     }
                     
-                    break;
+                    break; // 一颗子弹只击中一个敌人
                 }
             }
         }
         
+        // 从后往前移除，避免索引问题
+        bulletsToRemove.sort((a, b) => b - a).forEach(index => {
+            this.bullets.splice(index, 1);
+        });
+        enemiesToRemove.sort((a, b) => b - a).forEach(index => {
+            this.enemies.splice(index, 1);
+        });
+        
         // 玩家与敌人碰撞
         const playerRect = this.player.getCollisionRect();
-        for (let i = this.enemies.length - 1; i >= 0; i--) {
+        const enemiesToRemoveFromPlayer = [];
+        
+        for (let i = 0; i < this.enemies.length; i++) {
             const enemy = this.enemies[i];
+            
+            if (enemiesToRemoveFromPlayer.indexOf(i) !== -1) continue;
             
             if (rectCollision(playerRect, enemy.getCollisionRect())) {
                 // 玩家受伤
@@ -447,15 +479,12 @@ class Game {
                 // 添加受击效果
                 this.hitEffects.push(new HitEffect(this.player.x, this.player.y));
                 
-                // 敌人死亡
-                this.enemies.splice(i, 1);
-                this.explosions.push(new Explosion(enemy.x, enemy.y, 1.2));
+                // 敌人也被消灭
+                enemiesToRemoveFromPlayer.push(i);
+                this.handleEnemyDeath(enemy);
                 
-                // 屏幕震动
+                // 更强的屏幕震动
                 this.screenShake = 10;
-                
-                // 更新UI
-                this.updateUI();
                 
                 if (isDead) {
                     // 玩家死亡
@@ -465,6 +494,11 @@ class Game {
                 }
             }
         }
+        
+        // 移除与玩家相撞的敌机
+        enemiesToRemoveFromPlayer.sort((a, b) => b - a).forEach(index => {
+            this.enemies.splice(index, 1);
+        });
         
         // 敌人子弹与玩家碰撞
         for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
@@ -530,7 +564,8 @@ class Game {
     checkLevelProgress() {
         const config = LevelConfig[this.currentLevel];
         
-        if (this.enemiesKilled >= config.requiredKills) {
+        if (this.enemiesKilled >= config.requiredKills && !this.levelCompleteTriggered) {
+            this.levelCompleteTriggered = true;
             this.levelComplete();
         }
     }

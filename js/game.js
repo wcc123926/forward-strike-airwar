@@ -12,18 +12,127 @@ const GameState = {
     PAUSED: 'paused'
 };
 
+// Boss关定义 - 每3关一个Boss
+const BOSS_LEVELS = [3, 6, 9];
+
 // 关卡配置
 const LevelConfig = {
-    1: { enemySpawnRate: 60, smallEnemyChance: 0.7, mediumEnemyChance: 0.3, largeEnemyChance: 0, eliteEnemyChance: 0, requiredKills: 10, enemyHealthMultiplier: 1, enemySpeedMultiplier: 1 },
-    2: { enemySpawnRate: 55, smallEnemyChance: 0.6, mediumEnemyChance: 0.35, largeEnemyChance: 0.05, eliteEnemyChance: 0, requiredKills: 15, enemyHealthMultiplier: 1.1, enemySpeedMultiplier: 1 },
-    3: { enemySpawnRate: 50, smallEnemyChance: 0.5, mediumEnemyChance: 0.35, largeEnemyChance: 0.1, eliteEnemyChance: 0.05, requiredKills: 20, enemyHealthMultiplier: 1.2, enemySpeedMultiplier: 1.1 },
-    4: { enemySpawnRate: 45, smallEnemyChance: 0.45, mediumEnemyChance: 0.35, largeEnemyChance: 0.12, eliteEnemyChance: 0.08, requiredKills: 25, enemyHealthMultiplier: 1.3, enemySpeedMultiplier: 1.1 },
-    5: { enemySpawnRate: 40, smallEnemyChance: 0.4, mediumEnemyChance: 0.35, largeEnemyChance: 0.15, eliteEnemyChance: 0.1, requiredKills: 30, enemyHealthMultiplier: 1.5, enemySpeedMultiplier: 1.2 },
-    6: { enemySpawnRate: 38, smallEnemyChance: 0.35, mediumEnemyChance: 0.35, largeEnemyChance: 0.18, eliteEnemyChance: 0.12, requiredKills: 35, enemyHealthMultiplier: 1.6, enemySpeedMultiplier: 1.2 },
-    7: { enemySpawnRate: 35, smallEnemyChance: 0.3, mediumEnemyChance: 0.35, largeEnemyChance: 0.2, eliteEnemyChance: 0.15, requiredKills: 40, enemyHealthMultiplier: 1.8, enemySpeedMultiplier: 1.3 },
-    8: { enemySpawnRate: 32, smallEnemyChance: 0.25, mediumEnemyChance: 0.35, largeEnemyChance: 0.23, eliteEnemyChance: 0.17, requiredKills: 45, enemyHealthMultiplier: 2, enemySpeedMultiplier: 1.3 },
-    9: { enemySpawnRate: 30, smallEnemyChance: 0.2, mediumEnemyChance: 0.35, largeEnemyChance: 0.25, eliteEnemyChance: 0.2, requiredKills: 50, enemyHealthMultiplier: 2.2, enemySpeedMultiplier: 1.4 },
-    10: { enemySpawnRate: 28, smallEnemyChance: 0.15, mediumEnemyChance: 0.35, largeEnemyChance: 0.28, eliteEnemyChance: 0.22, requiredKills: 60, enemyHealthMultiplier: 2.5, enemySpeedMultiplier: 1.5 }
+    1: { 
+        enemySpawnRate: 60, 
+        smallEnemyChance: 0.7, 
+        mediumEnemyChance: 0.3, 
+        largeEnemyChance: 0, 
+        eliteEnemyChance: 0, 
+        requiredKills: 12, 
+        enemyHealthMultiplier: 1, 
+        enemySpeedMultiplier: 1,
+        isBossLevel: false
+    },
+    2: { 
+        enemySpawnRate: 55, 
+        smallEnemyChance: 0.6, 
+        mediumEnemyChance: 0.35, 
+        largeEnemyChance: 0.05, 
+        eliteEnemyChance: 0, 
+        requiredKills: 18, 
+        enemyHealthMultiplier: 1.1, 
+        enemySpeedMultiplier: 1,
+        isBossLevel: false
+    },
+    3: { 
+        enemySpawnRate: 50, 
+        smallEnemyChance: 0.5, 
+        mediumEnemyChance: 0.35, 
+        largeEnemyChance: 0.1, 
+        eliteEnemyChance: 0.05, 
+        requiredKills: 15,  // Boss关：热身击杀数
+        enemyHealthMultiplier: 1.2, 
+        enemySpeedMultiplier: 1.1,
+        isBossLevel: true,
+        bossType: BossType.DESTROYER,
+        bossIntro: '警告！毁灭者来袭！'
+    },
+    4: { 
+        enemySpawnRate: 45, 
+        smallEnemyChance: 0.45, 
+        mediumEnemyChance: 0.35, 
+        largeEnemyChance: 0.12, 
+        eliteEnemyChance: 0.08, 
+        requiredKills: 25, 
+        enemyHealthMultiplier: 1.3, 
+        enemySpeedMultiplier: 1.1,
+        isBossLevel: false
+    },
+    5: { 
+        enemySpawnRate: 40, 
+        smallEnemyChance: 0.4, 
+        mediumEnemyChance: 0.35, 
+        largeEnemyChance: 0.15, 
+        eliteEnemyChance: 0.1, 
+        requiredKills: 30, 
+        enemyHealthMultiplier: 1.5, 
+        enemySpeedMultiplier: 1.2,
+        isBossLevel: false
+    },
+    6: { 
+        enemySpawnRate: 38, 
+        smallEnemyChance: 0.35, 
+        mediumEnemyChance: 0.35, 
+        largeEnemyChance: 0.18, 
+        eliteEnemyChance: 0.12, 
+        requiredKills: 20,  // Boss关：热身击杀数
+        enemyHealthMultiplier: 1.6, 
+        enemySpeedMultiplier: 1.2,
+        isBossLevel: true,
+        bossType: BossType.CRUISER,
+        bossIntro: '警报！巡洋舰出现！'
+    },
+    7: { 
+        enemySpawnRate: 35, 
+        smallEnemyChance: 0.3, 
+        mediumEnemyChance: 0.35, 
+        largeEnemyChance: 0.2, 
+        eliteEnemyChance: 0.15, 
+        requiredKills: 35, 
+        enemyHealthMultiplier: 1.8, 
+        enemySpeedMultiplier: 1.3,
+        isBossLevel: false
+    },
+    8: { 
+        enemySpawnRate: 32, 
+        smallEnemyChance: 0.25, 
+        mediumEnemyChance: 0.35, 
+        largeEnemyChance: 0.23, 
+        eliteEnemyChance: 0.17, 
+        requiredKills: 40, 
+        enemyHealthMultiplier: 2, 
+        enemySpeedMultiplier: 1.3,
+        isBossLevel: false
+    },
+    9: { 
+        enemySpawnRate: 30, 
+        smallEnemyChance: 0.2, 
+        mediumEnemyChance: 0.35, 
+        largeEnemyChance: 0.25, 
+        eliteEnemyChance: 0.2, 
+        requiredKills: 25,  // Boss关：热身击杀数
+        enemyHealthMultiplier: 2.2, 
+        enemySpeedMultiplier: 1.4,
+        isBossLevel: true,
+        bossType: BossType.DREADNOUGHT,
+        bossIntro: '最终警告！无畏舰降临！'
+    },
+    10: { 
+        enemySpawnRate: 28, 
+        smallEnemyChance: 0.15, 
+        mediumEnemyChance: 0.35, 
+        largeEnemyChance: 0.28, 
+        eliteEnemyChance: 0.22, 
+        requiredKills: 50, 
+        enemyHealthMultiplier: 2.5, 
+        enemySpeedMultiplier: 1.5,
+        isBossLevel: false
+    }
 };
 
 const MAX_LEVEL = 10;
@@ -36,9 +145,15 @@ class Game {
         this.canvas = document.getElementById('gameCanvas');
         this.ctx = this.canvas.getContext('2d');
         
-        // 设置画布尺寸
+        // 游戏画布尺寸
         this.canvas.width = 480;
         this.canvas.height = 720;
+        
+        // 安全区域定义 - 确保UI和游戏内容不重叠
+        this.safeArea = {
+            top: 60,      // 顶部HUD区域（血条、进度、分数）
+            bottom: 60    // 底部HUD区域（火力等级、炸弹）
+        };
         
         // 游戏状态
         this.state = GameState.MENU;
@@ -57,8 +172,18 @@ class Game {
         // 新增游戏对象
         this.powerUps = [];
         this.notifications = [];
+        
+        // Boss系统
         this.boss = null;
         this.bossActive = false;
+        this.bossBullets = [];
+        this.bossHealthBar = new BossHealthBar();
+        this.bossDeathExplosions = 0;
+        
+        // Boss战标志
+        this.isBossLevel = false; // 当前关是否是Boss关
+        this.bossSpawned = false; // Boss是否已经生成
+        this.bossDefeated = false; // Boss是否已被击败
         
         // 关卡系统
         this.currentLevel = 1;
@@ -95,8 +220,13 @@ class Game {
             this.nebulas.push(new Nebula(this.canvas.width, this.canvas.height));
         }
         
-        // 创建玩家
-        this.player = new Player(this.canvas.width, this.canvas.height);
+        // 初始化玩家（传递安全区域参数）
+        this.player = new Player(
+            this.canvas.width, 
+            this.canvas.height, 
+            this.safeArea.top, 
+            this.safeArea.bottom
+        );
     }
     
     bindEvents() {
@@ -190,8 +320,16 @@ class Game {
         this.enemySpawnTimer = 0;
         this.screenShake = 0;
         this.levelCompleteTriggered = false;
+        
+        // 重置Boss系统
         this.bossActive = false;
         this.boss = null;
+        this.bossBullets = [];
+        this.bossHealthBar.deactivate();
+        this.bossDeathExplosions = 0;
+        this.isBossLevel = false;
+        this.bossSpawned = false;
+        this.bossDefeated = false;
         
         // 重置玩家
         this.player.reset();
@@ -228,6 +366,19 @@ class Game {
         this.enemies = [];
         this.enemyBullets = [];
         this.bullets = [];
+        
+        // 重置Boss系统
+        this.boss = null;
+        this.bossActive = false;
+        this.bossBullets = [];
+        this.bossHealthBar.deactivate();
+        this.bossDeathExplosions = 0;
+        
+        // 检查是否是Boss关
+        const config = LevelConfig[this.currentLevel];
+        this.isBossLevel = config.isBossLevel || false;
+        this.bossSpawned = false;
+        this.bossDefeated = false;
         
         // 恢复玩家部分生命值
         this.player.health = Math.min(this.player.maxHealth, this.player.health + 30);
@@ -365,8 +516,16 @@ class Game {
         // 更新敌人
         this.updateEnemies();
         
-        // 更新敌人子弹
-        this.updateEnemyBullets();
+        // 更新敌人子弹（非Boss战时）
+        if (!this.bossActive) {
+            this.updateEnemyBullets();
+        }
+        
+        // 更新Boss和Boss子弹（Boss战时）
+        if (this.bossActive) {
+            this.updateBoss();
+            this.updateBossBullets();
+        }
         
         // 碰撞检测
         this.checkCollisions();
@@ -383,8 +542,10 @@ class Game {
         // 屏幕震动
         this.updateScreenShake();
         
-        // 检查关卡进度
-        this.checkLevelProgress();
+        // 检查关卡进度（非Boss关）
+        if (!this.isBossLevel) {
+            this.checkLevelProgress();
+        }
     }
     
     // 更新道具
@@ -477,6 +638,18 @@ class Game {
     
     spawnEnemies() {
         const config = LevelConfig[this.currentLevel];
+        
+        // Boss关且Boss已生成：暂停普通敌人生成
+        if (this.isBossLevel && this.bossSpawned) {
+            return;
+        }
+        
+        // Boss关且达到热身击杀数：生成Boss
+        if (this.isBossLevel && !this.bossSpawned && this.enemiesKilled >= config.requiredKills) {
+            this.spawnBoss();
+            return;
+        }
+        
         const levelProgress = this.getLevelProgress();
         const isLateGame = levelProgress >= 0.7;
         
@@ -538,6 +711,133 @@ class Game {
             }
             
             this.enemies.push(enemy);
+        }
+    }
+    
+    // 生成Boss
+    spawnBoss() {
+        const config = LevelConfig[this.currentLevel];
+        if (!config.bossType) return;
+        
+        this.bossSpawned = true;
+        this.bossActive = true;
+        
+        // 创建Boss
+        this.boss = new Boss(this.canvas.width, this.canvas.height, config.bossType);
+        
+        // 激活Boss血条
+        this.bossHealthBar.activate(this.boss);
+        
+        // 显示Boss警告
+        if (config.bossIntro) {
+            this.addNotification(config.bossIntro, '#ff4444');
+        }
+        
+        // 清空屏幕上的普通敌人和子弹
+        this.enemies = [];
+        this.enemyBullets = [];
+    }
+    
+    // 更新Boss
+    updateBoss() {
+        if (!this.boss || !this.boss.active) return;
+        
+        // 更新Boss
+        this.boss.update(this.player.x, this.player.y);
+        
+        // 获取Boss发射的子弹
+        const bullets = this.boss.getPendingBullets();
+        if (bullets.length > 0) {
+            this.bossBullets.push(...bullets);
+        }
+        
+        // 更新Boss血条
+        this.bossHealthBar.update();
+        
+        // Boss死亡处理
+        if (this.boss.isDying) {
+            // 生成爆炸效果
+            if (this.bossDeathExplosions < 8) {
+                if (Math.random() > 0.6) {
+                    const ex = this.boss.x + random(-this.boss.width / 2, this.boss.width / 2);
+                    const ey = this.boss.y + random(-this.boss.height / 2, this.boss.height / 2);
+                    const size = random(1.0, 2.0);
+                    this.explosions.push(new Explosion(ex, ey, size));
+                    this.bossDeathExplosions++;
+                    this.screenShake = 8;
+                }
+            }
+            
+            // Boss完全死亡
+            if (!this.boss.active) {
+                this.bossDefeated = true;
+                this.bossActive = false;
+                this.bossHealthBar.deactivate();
+                
+                // 显示Boss击败通知
+                this.addNotification(`${this.boss.name} 已击败！`, '#44ff44');
+                
+                // 掉落大量道具奖励
+                this.dropBossRewards();
+                
+                // 增加大量分数
+                const bossConfig = BossConfig[this.boss.type];
+                this.player.score += bossConfig.score;
+                this.totalScore += bossConfig.score;
+                
+                // 处理关卡完成
+                this.enemiesKilled++;
+                this.totalEnemiesKilled++;
+                this.levelCompleteTriggered = true;
+                this.levelComplete();
+            }
+        }
+    }
+    
+    // 更新Boss子弹
+    updateBossBullets() {
+        for (let i = this.bossBullets.length - 1; i >= 0; i--) {
+            this.bossBullets[i].update(this.player.x, this.player.y);
+            
+            if (!this.bossBullets[i].active) {
+                this.bossBullets.splice(i, 1);
+            }
+        }
+    }
+    
+    // Boss击败后掉落奖励
+    dropBossRewards() {
+        const rewardCount = 4; // 固定掉落4个道具
+        
+        // 掉落位置分布
+        for (let i = 0; i < rewardCount; i++) {
+            // 确定掉落类型（确保有火力升级）
+            let powerUpType;
+            if (i === 0) {
+                // 第一个必定是火力升级
+                powerUpType = PowerUpType.FIRE_UP;
+            } else {
+                // 随机掉落其他类型
+                const roll = Math.random();
+                if (roll < 0.4) {
+                    powerUpType = PowerUpType.FIRE_UP;
+                } else if (roll < 0.6) {
+                    powerUpType = PowerUpType.SHIELD;
+                } else if (roll < 0.85) {
+                    powerUpType = PowerUpType.HEALTH;
+                } else {
+                    powerUpType = PowerUpType.BOMB;
+                }
+            }
+            
+            // 延迟一点时间后掉落
+            setTimeout(() => {
+                if (this.state === GameState.PLAYING) {
+                    const x = random(80, this.canvas.width - 80);
+                    const y = 150 + i * 30;
+                    this.powerUps.push(new PowerUp(x, y, powerUpType));
+                }
+            }, i * 200);
         }
     }
     
@@ -618,30 +918,27 @@ class Game {
     
     // 尝试掉落道具
     tryDropPowerUp(enemy) {
-        // 根据敌人类型确定掉落概率
+        // 根据敌人类型确定掉落概率 - 大幅降低普通敌人的掉落
         let dropChance;
         switch (enemy.type) {
             case EnemyType.SMALL:
-                dropChance = 0.1; // 10%
+                dropChance = 0.02; // 2% - 几乎不掉落
                 break;
             case EnemyType.MEDIUM:
-                dropChance = 0.2; // 20%
+                dropChance = 0.05; // 5% - 很少掉落
                 break;
             case EnemyType.LARGE:
-                dropChance = 0.35; // 35%
+                dropChance = 0.12; // 12% - 偶尔掉落
                 break;
             case EnemyType.ELITE:
-                dropChance = 0.5; // 50%
+                dropChance = 0.25; // 25% - 较常掉落
                 break;
             default:
-                dropChance = 0.15;
+                dropChance = 0.03;
         }
         
-        // 关卡后半段增加掉落概率
-        const levelProgress = this.getLevelProgress();
-        if (levelProgress >= 0.7) {
-            dropChance *= 1.5;
-        }
+        // 道具主要通过Boss战获得，普通关卡掉落大幅减少
+        // 不再在后半段增加掉落概率
         
         if (Math.random() < dropChance) {
             this.dropPowerUp(enemy.x, enemy.y);
@@ -677,30 +974,57 @@ class Game {
         const bulletsToRemove = [];
         const enemiesToRemove = [];
         
-        for (let i = 0; i < this.bullets.length; i++) {
-            const bullet = this.bullets[i];
+        // Boss战时：玩家子弹与Boss碰撞
+        if (this.bossActive && this.boss && !this.boss.isDying && !this.boss.isEntering) {
+            const bossRect = this.boss.getCollisionRect();
             
-            for (let j = 0; j < this.enemies.length; j++) {
-                const enemy = this.enemies[j];
+            for (let i = 0; i < this.bullets.length; i++) {
+                const bullet = this.bullets[i];
                 
-                if (enemiesToRemove.indexOf(j) !== -1) continue; // 已经标记要移除了
-                
-                if (rectCollision(bullet.getCollisionRect(), enemy.getCollisionRect())) {
-                    // 子弹击中敌人
+                if (rectCollision(bullet.getCollisionRect(), bossRect)) {
+                    // 子弹击中Boss
                     bulletsToRemove.push(i);
                     
-                    // 敌人受伤
-                    const isDead = enemy.takeDamage(bullet.damage);
+                    // Boss受伤
+                    const isDead = this.boss.takeDamage(bullet.damage);
                     
                     // 添加受击效果
                     this.hitEffects.push(new HitEffect(bullet.x, bullet.y));
                     
-                    if (isDead) {
-                        enemiesToRemove.push(j);
-                        this.handleEnemyDeath(enemy);
-                    }
+                    // 统计伤害
+                    this.player.stats.damageDealt += bullet.damage;
                     
-                    break; // 一颗子弹只击中一个敌人
+                    // 记录子弹位置，用于多个子弹检测
+                    continue;
+                }
+            }
+        } else {
+            // 非Boss战时：玩家子弹与普通敌人碰撞
+            for (let i = 0; i < this.bullets.length; i++) {
+                const bullet = this.bullets[i];
+                
+                for (let j = 0; j < this.enemies.length; j++) {
+                    const enemy = this.enemies[j];
+                    
+                    if (enemiesToRemove.indexOf(j) !== -1) continue; // 已经标记要移除了
+                    
+                    if (rectCollision(bullet.getCollisionRect(), enemy.getCollisionRect())) {
+                        // 子弹击中敌人
+                        bulletsToRemove.push(i);
+                        
+                        // 敌人受伤
+                        const isDead = enemy.takeDamage(bullet.damage);
+                        
+                        // 添加受击效果
+                        this.hitEffects.push(new HitEffect(bullet.x, bullet.y));
+                        
+                        if (isDead) {
+                            enemiesToRemove.push(j);
+                            this.handleEnemyDeath(enemy);
+                        }
+                        
+                        break; // 一颗子弹只击中一个敌人
+                    }
                 }
             }
         }
@@ -750,22 +1074,80 @@ class Game {
             this.enemies.splice(index, 1);
         });
         
-        // 敌人子弹与玩家碰撞
-        for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
-            const bullet = this.enemyBullets[i];
-            
-            if (rectCollision(playerRect, bullet.getCollisionRect())) {
-                // 玩家受伤
-                const isDead = this.player.takeDamage(bullet.damage);
+        // 敌人子弹与玩家碰撞（非Boss战时）
+        if (!this.bossActive) {
+            for (let i = this.enemyBullets.length - 1; i >= 0; i--) {
+                const bullet = this.enemyBullets[i];
                 
-                // 移除子弹
-                this.enemyBullets.splice(i, 1);
+                if (rectCollision(playerRect, bullet.getCollisionRect())) {
+                    // 玩家受伤
+                    const isDead = this.player.takeDamage(bullet.damage);
+                    
+                    // 移除子弹
+                    this.enemyBullets.splice(i, 1);
+                    
+                    // 添加受击效果
+                    this.hitEffects.push(new HitEffect(this.player.x, this.player.y));
+                    
+                    // 屏幕震动
+                    this.screenShake = 8;
+                    
+                    // 更新UI
+                    this.updateUI();
+                    
+                    if (isDead) {
+                        // 玩家死亡
+                        this.explosions.push(new Explosion(this.player.x, this.player.y, 2));
+                        this.gameOver();
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // Boss子弹与玩家碰撞（Boss战时）
+        if (this.bossActive) {
+            for (let i = this.bossBullets.length - 1; i >= 0; i--) {
+                const bullet = this.bossBullets[i];
+                
+                if (rectCollision(playerRect, bullet.getCollisionRect())) {
+                    // 玩家受伤（Boss子弹伤害更高）
+                    const isDead = this.player.takeDamage(bullet.damage);
+                    
+                    // 移除子弹
+                    this.bossBullets.splice(i, 1);
+                    
+                    // 添加受击效果
+                    this.hitEffects.push(new HitEffect(this.player.x, this.player.y));
+                    
+                    // 屏幕震动
+                    this.screenShake = 10;
+                    
+                    // 更新UI
+                    this.updateUI();
+                    
+                    if (isDead) {
+                        // 玩家死亡
+                        this.explosions.push(new Explosion(this.player.x, this.player.y, 2));
+                        this.gameOver();
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // 玩家与Boss碰撞（Boss战时）
+        if (this.bossActive && this.boss && !this.boss.isDying && !this.boss.isEntering) {
+            const bossRect = this.boss.getCollisionRect();
+            if (rectCollision(playerRect, bossRect)) {
+                // 玩家与Boss相撞（大量伤害）
+                const isDead = this.player.takeDamage(50);
                 
                 // 添加受击效果
                 this.hitEffects.push(new HitEffect(this.player.x, this.player.y));
                 
-                // 屏幕震动
-                this.screenShake = 8;
+                // 强屏幕震动
+                this.screenShake = 15;
                 
                 // 更新UI
                 this.updateUI();
@@ -940,11 +1322,25 @@ class Game {
             // 绘制玩家子弹
             this.bullets.forEach(bullet => bullet.draw(this.ctx));
             
-            // 绘制敌人子弹
-            this.enemyBullets.forEach(bullet => bullet.draw(this.ctx));
+            // 绘制敌人子弹（非Boss战时）
+            if (!this.bossActive) {
+                this.enemyBullets.forEach(bullet => bullet.draw(this.ctx));
+            }
             
-            // 绘制敌人
-            this.enemies.forEach(enemy => enemy.draw(this.ctx));
+            // 绘制Boss子弹（Boss战时）
+            if (this.bossActive) {
+                this.bossBullets.forEach(bullet => bullet.draw(this.ctx));
+            }
+            
+            // 绘制敌人（非Boss战时）
+            if (!this.bossActive) {
+                this.enemies.forEach(enemy => enemy.draw(this.ctx));
+            }
+            
+            // 绘制Boss
+            if (this.boss && this.boss.active) {
+                this.boss.draw(this.ctx);
+            }
             
             // 绘制玩家
             this.player.draw(this.ctx);
@@ -960,6 +1356,11 @@ class Game {
             
             // 绘制文字提示
             this.notifications.forEach(notification => notification.draw(this.ctx));
+            
+            // 绘制Boss血条
+            if (this.bossHealthBar.active) {
+                this.bossHealthBar.draw(this.ctx, this.canvas.width);
+            }
             
             // 绘制HUD：火力等级、炸弹数量、关卡进度提示
             this.drawHUD();

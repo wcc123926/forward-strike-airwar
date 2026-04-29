@@ -54,6 +54,12 @@ class Game {
         this.explosions = [];
         this.hitEffects = [];
         
+        // 新增游戏对象
+        this.powerUps = [];
+        this.notifications = [];
+        this.boss = null;
+        this.bossActive = false;
+        
         // 关卡系统
         this.currentLevel = 1;
         this.enemiesKilled = 0;
@@ -126,6 +132,16 @@ class Game {
             this.isMouseOnCanvas = true;
         });
         
+        // 键盘事件
+        document.addEventListener('keydown', (e) => {
+            if (this.state === GameState.PLAYING) {
+                // 按B使用炸弹
+                if (e.key === 'b' || e.key === 'B') {
+                    this.useBomb();
+                }
+            }
+        });
+        
         // UI按钮事件
         document.getElementById('startBtn').addEventListener('click', () => {
             this.startGame();
@@ -174,6 +190,8 @@ class Game {
         this.enemySpawnTimer = 0;
         this.screenShake = 0;
         this.levelCompleteTriggered = false;
+        this.bossActive = false;
+        this.boss = null;
         
         // 重置玩家
         this.player.reset();
@@ -184,6 +202,8 @@ class Game {
         this.enemyBullets = [];
         this.explosions = [];
         this.hitEffects = [];
+        this.powerUps = [];
+        this.notifications = [];
         
         // 更新UI
         this.updateUI();
@@ -227,6 +247,41 @@ class Game {
         document.getElementById('victory-menu').classList.add('hidden');
     }
     
+    // 使用炸弹
+    useBomb() {
+        if (this.player.useBomb()) {
+            // 清除所有敌机和敌机子弹
+            for (let i = this.enemies.length - 1; i >= 0; i--) {
+                const enemy = this.enemies[i];
+                // 统计伤害
+                this.player.stats.damageDealt += enemy.maxHealth;
+                // 创建爆炸效果
+                this.explosions.push(new Explosion(enemy.x, enemy.y, 1.2));
+                // 增加得分
+                const config = EnemyConfig[enemy.type];
+                this.player.score += config.score;
+                this.totalScore += config.score;
+                this.enemiesKilled++;
+                this.totalEnemiesKilled++;
+            }
+            
+            // 清除敌人
+            this.enemies = [];
+            
+            // 清除敌机子弹
+            this.enemyBullets = [];
+            
+            // 添加文字提示
+            this.addNotification('💥 炸弹清除！', '#ff44ff');
+            
+            // 屏幕震动
+            this.screenShake = 15;
+            
+            // 更新UI
+            this.updateUI();
+        }
+    }
+    
     gameOver() {
         this.state = GameState.GAME_OVER;
         this.hideAllMenus();
@@ -236,6 +291,18 @@ class Game {
         document.getElementById('final-score').textContent = this.totalScore;
         document.getElementById('final-level').textContent = this.currentLevel;
         document.getElementById('enemies-killed').textContent = this.totalEnemiesKilled;
+        
+        // 添加详细统计
+        const stats = this.player.stats;
+        const statsText = 
+            `总得分: ${this.totalScore}\n` +
+            `到达关卡: 第${this.currentLevel}关\n` +
+            `击杀敌机: ${this.totalEnemiesKilled}架\n` +
+            `最高火力: ${stats.maxFireLevelReached}级\n` +
+            `收集道具: ${stats.powerUpsCollected}个\n` +
+            `使用炸弹: ${stats.bombsUsed}次`;
+        
+        console.log('游戏结束统计:', statsText);
     }
     
     levelComplete() {
@@ -252,6 +319,9 @@ class Game {
         const levelScore = this.player.score;
         document.getElementById('level-score').textContent = levelScore;
         document.getElementById('total-score').textContent = this.totalScore;
+        
+        // 添加关卡完成提示
+        this.addNotification(`🎉 第${this.currentLevel}关完成！`, '#44ff44');
     }
     
     victory() {
@@ -262,6 +332,19 @@ class Game {
         document.getElementById('victory-score').textContent = this.totalScore;
         document.getElementById('victory-level').textContent = this.currentLevel;
         document.getElementById('victory-kills').textContent = this.totalEnemiesKilled;
+        
+        // 游戏胜利详细统计
+        const stats = this.player.stats;
+        console.log('=== 游戏胜利详细统计 ===');
+        console.log(`最终得分: ${this.totalScore}`);
+        console.log(`通关关卡: ${MAX_LEVEL}关`);
+        console.log(`总击杀数: ${this.totalEnemiesKilled}`);
+        console.log(`最高火力等级: ${stats.maxFireLevelReached}`);
+        console.log(`收集道具数: ${stats.powerUpsCollected}`);
+        console.log(`使用炸弹数: ${stats.bombsUsed}`);
+        console.log(`总伤害输出: ${Math.floor(stats.damageDealt)}`);
+        console.log(`总受到伤害: ${Math.floor(stats.damageTaken)}`);
+        console.log('========================');
     }
     
     update() {
@@ -291,11 +374,39 @@ class Game {
         // 更新特效
         this.updateEffects();
         
+        // 更新道具
+        this.updatePowerUps();
+        
+        // 更新文字提示
+        this.updateNotifications();
+        
         // 屏幕震动
         this.updateScreenShake();
         
         // 检查关卡进度
         this.checkLevelProgress();
+    }
+    
+    // 更新道具
+    updatePowerUps() {
+        for (let i = this.powerUps.length - 1; i >= 0; i--) {
+            this.powerUps[i].update();
+            
+            if (!this.powerUps[i].active) {
+                this.powerUps.splice(i, 1);
+            }
+        }
+    }
+    
+    // 更新文字提示
+    updateNotifications() {
+        for (let i = this.notifications.length - 1; i >= 0; i--) {
+            this.notifications[i].update();
+            
+            if (!this.notifications[i].active) {
+                this.notifications.splice(i, 1);
+            }
+        }
     }
     
     updateBackground() {
@@ -315,29 +426,93 @@ class Game {
         // 更新玩家
         this.player.update();
         
-        // 自动射击
+        // 自动射击 - 根据火力等级发射多发子弹
         if (this.player.canShoot()) {
-            this.bullets.push(new Bullet(this.player.x, this.player.y - this.player.height / 2));
+            this.fireBullets();
             this.player.shoot();
+        }
+    }
+    
+    // 根据火力等级发射多发子弹
+    fireBullets() {
+        const fireLevel = this.player.fireLevel;
+        const config = FireLevelConfig[fireLevel];
+        const bulletCount = config.bulletCount;
+        const spread = config.bulletSpread;
+        const bulletWidth = config.bulletWidth;
+        const bulletHeight = config.bulletHeight;
+        
+        const startY = this.player.y - this.player.height / 2;
+        
+        if (bulletCount === 1) {
+            // 单发射击
+            this.bullets.push(new Bullet(this.player.x, startY, 0, bulletWidth, bulletHeight));
+        } else if (bulletCount === 2) {
+            // 双发射击
+            const offset = spread / 2;
+            this.bullets.push(new Bullet(this.player.x - offset, startY, 0, bulletWidth, bulletHeight));
+            this.bullets.push(new Bullet(this.player.x + offset, startY, 0, bulletWidth, bulletHeight));
+        } else if (bulletCount === 3) {
+            // 三发射击
+            const offset = spread;
+            this.bullets.push(new Bullet(this.player.x - offset, startY, -0.1, bulletWidth, bulletHeight));
+            this.bullets.push(new Bullet(this.player.x, startY, 0, bulletWidth, bulletHeight));
+            this.bullets.push(new Bullet(this.player.x + offset, startY, 0.1, bulletWidth, bulletHeight));
+        } else if (bulletCount === 4) {
+            // 四发散射
+            const angles = [-0.3, -0.1, 0.1, 0.3];
+            const offsets = [-spread * 0.8, -spread * 0.3, spread * 0.3, spread * 0.8];
+            for (let i = 0; i < 4; i++) {
+                this.bullets.push(new Bullet(this.player.x + offsets[i], startY, angles[i], bulletWidth, bulletHeight));
+            }
+        } else if (bulletCount === 5) {
+            // 五发扇形
+            const angles = [-0.4, -0.2, 0, 0.2, 0.4];
+            const offsets = [-spread, -spread * 0.5, 0, spread * 0.5, spread];
+            for (let i = 0; i < 5; i++) {
+                this.bullets.push(new Bullet(this.player.x + offsets[i], startY, angles[i], bulletWidth, bulletHeight));
+            }
         }
     }
     
     spawnEnemies() {
         const config = LevelConfig[this.currentLevel];
+        const levelProgress = this.getLevelProgress();
+        const isLateGame = levelProgress >= 0.7;
+        
+        // 关卡后半段：加快生成速度
+        let spawnRate = config.enemySpawnRate;
+        if (isLateGame) {
+            spawnRate = Math.floor(spawnRate * 0.7); // 加快30%
+        }
+        
         this.enemySpawnTimer++;
         
-        if (this.enemySpawnTimer >= config.enemySpawnRate) {
+        if (this.enemySpawnTimer >= spawnRate) {
             this.enemySpawnTimer = 0;
             
             // 确定要生成的敌人类型
             const roll = Math.random();
             let enemyType;
             
-            if (roll < config.smallEnemyChance) {
+            // 关卡后半段：增加精英和大型敌人的概率
+            let smallChance = config.smallEnemyChance;
+            let mediumChance = config.mediumEnemyChance;
+            let largeChance = config.largeEnemyChance;
+            let eliteChance = config.eliteEnemyChance;
+            
+            if (isLateGame) {
+                smallChance *= 0.6; // 减少小型敌人
+                eliteChance *= 1.8; // 大幅增加精英敌人
+                largeChance *= 1.5; // 增加大型敌人
+                mediumChance = 1 - smallChance - largeChance - eliteChance;
+            }
+            
+            if (roll < smallChance) {
                 enemyType = EnemyType.SMALL;
-            } else if (roll < config.smallEnemyChance + config.mediumEnemyChance) {
+            } else if (roll < smallChance + mediumChance) {
                 enemyType = EnemyType.MEDIUM;
-            } else if (roll < config.smallEnemyChance + config.mediumEnemyChance + config.largeEnemyChance) {
+            } else if (roll < smallChance + mediumChance + largeChance) {
                 enemyType = EnemyType.LARGE;
             } else {
                 enemyType = EnemyType.ELITE;
@@ -355,8 +530,21 @@ class Game {
             enemy.maxHealth *= config.enemyHealthMultiplier;
             enemy.speed *= config.enemySpeedMultiplier;
             
+            // 关卡后半段：敌人更强更快
+            if (isLateGame) {
+                enemy.health *= 1.3;
+                enemy.maxHealth *= 1.3;
+                enemy.speed *= 1.2;
+            }
+            
             this.enemies.push(enemy);
         }
+    }
+    
+    // 获取关卡进度 (0-1)
+    getLevelProgress() {
+        const config = LevelConfig[this.currentLevel];
+        return this.enemiesKilled / config.requiredKills;
     }
     
     updateBullets() {
@@ -415,11 +603,73 @@ class Game {
         this.enemiesKilled++;
         this.totalEnemiesKilled++;
         
+        // 统计伤害输出
+        this.player.stats.damageDealt += enemy.maxHealth;
+        
         // 屏幕震动
         this.screenShake = 5;
         
+        // 道具掉落
+        this.tryDropPowerUp(enemy);
+        
         // 更新UI
         this.updateUI();
+    }
+    
+    // 尝试掉落道具
+    tryDropPowerUp(enemy) {
+        // 根据敌人类型确定掉落概率
+        let dropChance;
+        switch (enemy.type) {
+            case EnemyType.SMALL:
+                dropChance = 0.1; // 10%
+                break;
+            case EnemyType.MEDIUM:
+                dropChance = 0.2; // 20%
+                break;
+            case EnemyType.LARGE:
+                dropChance = 0.35; // 35%
+                break;
+            case EnemyType.ELITE:
+                dropChance = 0.5; // 50%
+                break;
+            default:
+                dropChance = 0.15;
+        }
+        
+        // 关卡后半段增加掉落概率
+        const levelProgress = this.getLevelProgress();
+        if (levelProgress >= 0.7) {
+            dropChance *= 1.5;
+        }
+        
+        if (Math.random() < dropChance) {
+            this.dropPowerUp(enemy.x, enemy.y);
+        }
+    }
+    
+    // 掉落道具
+    dropPowerUp(x, y) {
+        // 确定道具类型
+        const roll = Math.random();
+        let powerUpType;
+        
+        // 权重分配
+        if (roll < 0.4) {
+            // 40% 火力升级
+            powerUpType = PowerUpType.FIRE_UP;
+        } else if (roll < 0.65) {
+            // 25% 护盾
+            powerUpType = PowerUpType.SHIELD;
+        } else if (roll < 0.9) {
+            // 25% 生命恢复
+            powerUpType = PowerUpType.HEALTH;
+        } else {
+            // 10% 炸弹
+            powerUpType = PowerUpType.BOMB;
+        }
+        
+        this.powerUps.push(new PowerUp(x, y, powerUpType));
     }
 
     checkCollisions() {
@@ -528,6 +778,82 @@ class Game {
                 }
             }
         }
+        
+        // 玩家与道具碰撞
+        this.checkPowerUpCollisions(playerRect);
+    }
+    
+    // 检查道具拾取
+    checkPowerUpCollisions(playerRect) {
+        for (let i = this.powerUps.length - 1; i >= 0; i--) {
+            const powerUp = this.powerUps[i];
+            
+            if (rectCollision(playerRect, powerUp.getCollisionRect())) {
+                this.collectPowerUp(powerUp);
+                this.powerUps.splice(i, 1);
+            }
+        }
+    }
+    
+    // 收集道具
+    collectPowerUp(powerUp) {
+        const config = PowerUpConfig[powerUp.type];
+        let notificationText = config.name;
+        let notificationColor = config.color;
+        
+        switch (powerUp.type) {
+            case PowerUpType.FIRE_UP:
+                if (this.player.fireLevel < this.player.maxFireLevel) {
+                    const oldLevel = this.player.fireLevel;
+                    this.player.upgradeFire();
+                    const newConfig = FireLevelConfig[this.player.fireLevel];
+                    notificationText = `${config.name} - ${newConfig.description}`;
+                } else {
+                    // 火力已满时，提供额外分数
+                    this.player.score += 500;
+                    this.totalScore += 500;
+                    notificationText = '火力已满 +500分';
+                }
+                break;
+                
+            case PowerUpType.SHIELD:
+                this.player.activateShield();
+                notificationText = '获得护盾 - 吸收伤害';
+                break;
+                
+            case PowerUpType.HEALTH:
+                const healed = this.player.heal(30);
+                if (healed > 0) {
+                    notificationText = `生命恢复 +${healed}`;
+                } else {
+                    notificationText = '生命已满';
+                }
+                break;
+                
+            case PowerUpType.BOMB:
+                if (this.player.addBomb()) {
+                    notificationText = '获得炸弹 - 按B使用';
+                } else {
+                    // 炸弹已满时，提供额外分数
+                    this.player.score += 300;
+                    this.totalScore += 300;
+                    notificationText = '炸弹已满 +300分';
+                }
+                break;
+        }
+        
+        // 添加文字提示
+        this.addNotification(notificationText, notificationColor);
+        
+        // 更新UI
+        this.updateUI();
+    }
+    
+    // 添加文字提示
+    addNotification(text, color = '#ffffff') {
+        // 在屏幕上方显示提示，避免遮挡主游玩区域
+        const y = 80;
+        this.notifications.push(new TextNotification(this.canvas.width / 2, y, text, color));
     }
     
     updateEffects() {
@@ -608,6 +934,9 @@ class Game {
         
         // 只在游戏进行中绘制游戏对象
         if (this.state === GameState.PLAYING) {
+            // 绘制道具
+            this.powerUps.forEach(powerUp => powerUp.draw(this.ctx));
+            
             // 绘制玩家子弹
             this.bullets.forEach(bullet => bullet.draw(this.ctx));
             
@@ -620,15 +949,185 @@ class Game {
             // 绘制玩家
             this.player.draw(this.ctx);
             
+            // 绘制护盾
+            this.player.shield.draw(this.ctx, this.player.x, this.player.y, this.player.width, this.player.height);
+            
             // 绘制爆炸效果
             this.explosions.forEach(explosion => explosion.draw(this.ctx));
             
             // 绘制受击效果
             this.hitEffects.forEach(effect => effect.draw(this.ctx));
+            
+            // 绘制文字提示
+            this.notifications.forEach(notification => notification.draw(this.ctx));
+            
+            // 绘制HUD：火力等级、炸弹数量、关卡进度提示
+            this.drawHUD();
         }
         
         // 恢复上下文状态
         this.ctx.restore();
+    }
+    
+    // 绘制HUD信息
+    drawHUD() {
+        // 绘制火力等级显示（位于屏幕左下角，不遮挡主游玩区域）
+        this.drawFireLevelDisplay();
+        
+        // 绘制炸弹数量显示（位于屏幕右下角）
+        this.drawBombDisplay();
+        
+        // 绘制关卡阶段提示（后半段时显示警告）
+        this.drawStageIndicator();
+    }
+    
+    // 绘制火力等级显示
+    drawFireLevelDisplay() {
+        const fireLevel = this.player.fireLevel;
+        const config = FireLevelConfig[fireLevel];
+        
+        // 背景框
+        const x = 10;
+        const y = this.canvas.height - 50;
+        const width = 140;
+        const height = 40;
+        
+        this.ctx.save();
+        
+        // 半透明背景
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(x, y, width, height);
+        
+        // 边框
+        this.ctx.strokeStyle = '#64b5f6';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(x, y, width, height);
+        
+        // 火力等级文字
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'left';
+        this.ctx.textBaseline = 'top';
+        this.ctx.fillText('火力:', x + 8, y + 6);
+        
+        // 火力等级指示器（彩色方块）
+        const blockWidth = 20;
+        const blockHeight = 12;
+        const startX = x + 8;
+        const blockY = y + 22;
+        
+        for (let i = 1; i <= MAX_FIRE_LEVEL; i++) {
+            const bx = startX + (i - 1) * (blockWidth + 4);
+            
+            if (i <= fireLevel) {
+                // 已激活的等级
+                const gradient = this.ctx.createLinearGradient(bx, blockY, bx, blockY + blockHeight);
+                if (i === 1) {
+                    gradient.addColorStop(0, '#64b5f6');
+                    gradient.addColorStop(1, '#1976d2');
+                } else if (i === 2) {
+                    gradient.addColorStop(0, '#81c784');
+                    gradient.addColorStop(1, '#388e3c');
+                } else if (i === 3) {
+                    gradient.addColorStop(0, '#ffb74d');
+                    gradient.addColorStop(1, '#f57c00');
+                } else if (i === 4) {
+                    gradient.addColorStop(0, '#ff8a65');
+                    gradient.addColorStop(1, '#e64a19');
+                } else {
+                    gradient.addColorStop(0, '#f06292');
+                    gradient.addColorStop(1, '#c2185b');
+                }
+                this.ctx.fillStyle = gradient;
+                this.ctx.fillRect(bx, blockY, blockWidth, blockHeight);
+                
+                // 边框
+                this.ctx.strokeStyle = '#ffffff';
+                this.ctx.lineWidth = 1;
+                this.ctx.strokeRect(bx, blockY, blockWidth, blockHeight);
+            } else {
+                // 未激活的等级
+                this.ctx.fillStyle = 'rgba(100, 100, 100, 0.5)';
+                this.ctx.fillRect(bx, blockY, blockWidth, blockHeight);
+            }
+        }
+        
+        this.ctx.restore();
+    }
+    
+    // 绘制炸弹数量显示
+    drawBombDisplay() {
+        const bombs = this.player.bombs;
+        const maxBombs = this.player.maxBombs;
+        
+        if (maxBombs === 0) return;
+        
+        const x = this.canvas.width - 80;
+        const y = this.canvas.height - 50;
+        const width = 70;
+        const height = 40;
+        
+        this.ctx.save();
+        
+        // 半透明背景
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(x, y, width, height);
+        
+        // 边框
+        this.ctx.strokeStyle = '#ff44ff';
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(x, y, width, height);
+        
+        // 标题
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'top';
+        this.ctx.fillText('炸弹', x + width / 2, y + 4);
+        
+        // 炸弹数量
+        this.ctx.fillStyle = bombs > 0 ? '#ff44ff' : '#666666';
+        this.ctx.font = 'bold 18px Arial';
+        this.ctx.fillText(`${bombs}/${maxBombs}`, x + width / 2, y + 18);
+        
+        // 提示文字
+        if (bombs > 0) {
+            this.ctx.fillStyle = '#aaaaaa';
+            this.ctx.font = '10px Arial';
+            this.ctx.fillText('按B使用', x + width / 2, y + 32);
+        }
+        
+        this.ctx.restore();
+    }
+    
+    // 绘制关卡阶段指示器（后半段显示警告）
+    drawStageIndicator() {
+        const levelProgress = this.getLevelProgress();
+        
+        if (levelProgress >= 0.7 && levelProgress < 1.0) {
+            const x = this.canvas.width / 2;
+            const y = 50;
+            
+            this.ctx.save();
+            
+            // 闪烁的警告文字
+            const pulse = Math.sin(Date.now() / 200) * 0.3 + 0.7;
+            
+            this.ctx.globalAlpha = pulse;
+            this.ctx.fillStyle = '#ff6666';
+            this.ctx.font = 'bold 16px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            this.ctx.fillText('⚠ 进入高威胁区域 ⚠', x, y);
+            
+            // 副标题
+            this.ctx.globalAlpha = pulse * 0.8;
+            this.ctx.fillStyle = '#ffaa66';
+            this.ctx.font = '12px Arial';
+            this.ctx.fillText('敌人强度提升，注意躲避！', x, y + 18);
+            
+            this.ctx.restore();
+        }
     }
     
     gameLoop() {

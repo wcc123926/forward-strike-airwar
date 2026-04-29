@@ -200,13 +200,15 @@ class Nebula {
  * 玩家飞机类
  */
 class Player {
-    constructor(canvasWidth, canvasHeight) {
+    constructor(canvasWidth, canvasHeight, safeAreaTop = 0, safeAreaBottom = 0) {
         this.canvasWidth = canvasWidth;
         this.canvasHeight = canvasHeight;
+        this.safeAreaTop = safeAreaTop;
+        this.safeAreaBottom = safeAreaBottom;
         this.width = 50;
         this.height = 60;
         this.x = canvasWidth / 2;
-        this.y = canvasHeight - 120;
+        this.y = canvasHeight - 150; // 调整初始位置，避免和底部HUD重叠
         this.targetX = this.x;
         this.targetY = this.y;
         this.speed = 8;
@@ -242,9 +244,15 @@ class Player {
         };
     }
     
+    // 设置安全区域
+    setSafeArea(top, bottom) {
+        this.safeAreaTop = top;
+        this.safeAreaBottom = bottom;
+    }
+    
     reset() {
         this.x = this.canvasWidth / 2;
-        this.y = this.canvasHeight - 120;
+        this.y = this.canvasHeight - 150;
         this.targetX = this.x;
         this.targetY = this.y;
         this.health = 100;
@@ -282,10 +290,12 @@ class Player {
             this.width / 2,
             this.canvasWidth - this.width / 2
         );
+        
+        // 限制目标位置在安全游玩区域内（不包含顶部和底部HUD区域）
         this.targetY = clamp(
             this.targetY,
-            this.height / 2,
-            this.canvasHeight - this.height / 2
+            this.safeAreaTop + this.height / 2,  // 顶部安全区域 + 飞机一半高度
+            this.canvasHeight - this.safeAreaBottom - this.height / 2  // 底部安全区域 + 飞机一半高度
         );
     }
     
@@ -1218,37 +1228,834 @@ class ShieldEffect {
 }
 
 /**
- * 首领敌机类型枚举
+ * Boss类型枚举
  */
 const BossType = {
-    MINI: 'mini',
-    ELITE: 'elite'
+    DESTROYER: 'destroyer',    // 第3关Boss - 毁灭者
+    CRUISER: 'cruiser',        // 第6关Boss - 巡洋舰
+    DREADNOUGHT: 'dreadnought' // 第9关Boss - 无畏舰
 };
 
 /**
- * 首领配置
+ * Boss攻击模式枚举
+ */
+const BossAttackMode = {
+    NORMAL: 'normal',          // 普通射击
+    SPREAD: 'spread',          // 扇形散射
+    SPIRAL: 'spiral',          // 螺旋弹幕
+    CROSS: 'cross',            // 十字/米字弹幕
+    LASER: 'laser'             // 激光瞄准
+};
+
+/**
+ * Boss配置 - 每3关一个Boss
  */
 const BossConfig = {
-    [BossType.MINI]: {
-        width: 100,
-        height: 100,
-        speed: 1,
-        health: 800,
-        score: 2000,
-        color: '#ff4444',
-        shootDelay: 40,
-        specialShootDelay: 120,
-        name: '突击队长'
-    },
-    [BossType.ELITE]: {
-        width: 120,
+    [BossType.DESTROYER]: {
+        width: 140,
         height: 120,
-        speed: 0.8,
-        health: 1500,
-        score: 5000,
+        health: 3000,
+        score: 10000,
+        color: '#ff4444',
+        secondaryColor: '#ff8800',
+        name: '毁灭者',
+        subtitle: '第一编队指挥官',
+        moveSpeed: 1.5,
+        attackModes: [
+            { mode: BossAttackMode.NORMAL, duration: 180, shootDelay: 25 },
+            { mode: BossAttackMode.SPREAD, duration: 120, shootDelay: 40 }
+        ]
+    },
+    [BossType.CRUISER]: {
+        width: 160,
+        height: 140,
+        health: 6000,
+        score: 25000,
         color: '#ff00ff',
-        shootDelay: 35,
-        specialShootDelay: 100,
-        name: '精英指挥官'
+        secondaryColor: '#ff44ff',
+        name: '巡洋舰',
+        subtitle: '第二舰队旗舰',
+        moveSpeed: 1.2,
+        attackModes: [
+            { mode: BossAttackMode.NORMAL, duration: 150, shootDelay: 20 },
+            { mode: BossAttackMode.SPREAD, duration: 100, shootDelay: 35 },
+            { mode: BossAttackMode.SPIRAL, duration: 120, shootDelay: 15 }
+        ]
+    },
+    [BossType.DREADNOUGHT]: {
+        width: 180,
+        height: 160,
+        health: 10000,
+        score: 50000,
+        color: '#ff0000',
+        secondaryColor: '#ffaa00',
+        name: '无畏舰',
+        subtitle: '帝国旗舰',
+        moveSpeed: 1.0,
+        attackModes: [
+            { mode: BossAttackMode.NORMAL, duration: 120, shootDelay: 18 },
+            { mode: BossAttackMode.SPREAD, duration: 100, shootDelay: 30 },
+            { mode: BossAttackMode.SPIRAL, duration: 100, shootDelay: 12 },
+            { mode: BossAttackMode.CROSS, duration: 80, shootDelay: 40 },
+            { mode: BossAttackMode.LASER, duration: 60, shootDelay: 50 }
+        ]
     }
 };
+
+/**
+ * Boss子弹类型
+ */
+const BossBulletType = {
+    NORMAL: 'normal',
+    LARGE: 'large',
+    FAST: 'fast',
+    TRACKING: 'tracking'
+};
+
+/**
+ * Boss子弹类
+ */
+class BossBullet {
+    constructor(x, y, angle = 0, type = BossBulletType.NORMAL, speed = 4, damage = 15) {
+        this.x = x;
+        this.y = y;
+        this.angle = angle;
+        this.type = type;
+        this.damage = damage;
+        this.active = true;
+        this.lifetime = 0;
+        
+        // 根据类型设置属性
+        switch (type) {
+            case BossBulletType.LARGE:
+                this.width = 16;
+                this.height = 16;
+                this.speed = speed * 0.8;
+                this.color = '#ff4444';
+                this.glowColor = 'rgba(255, 68, 68, 0.6)';
+                break;
+            case BossBulletType.FAST:
+                this.width = 8;
+                this.height = 12;
+                this.speed = speed * 1.5;
+                this.color = '#ffaa00';
+                this.glowColor = 'rgba(255, 170, 0, 0.6)';
+                break;
+            case BossBulletType.TRACKING:
+                this.width = 10;
+                this.height = 10;
+                this.speed = speed * 0.6;
+                this.color = '#ff00ff';
+                this.glowColor = 'rgba(255, 0, 255, 0.6)';
+                this.trackingTime = 60; // 追踪持续时间
+                break;
+            default:
+                this.width = 12;
+                this.height = 12;
+                this.speed = speed;
+                this.color = '#ff6666';
+                this.glowColor = 'rgba(255, 102, 102, 0.6)';
+        }
+        
+        // 计算速度分量
+        this.vx = Math.sin(angle) * this.speed;
+        this.vy = Math.cos(angle) * this.speed;
+    }
+    
+    update(playerX, playerY) {
+        this.lifetime++;
+        
+        // 追踪子弹逻辑
+        if (this.type === BossBulletType.TRACKING && this.trackingTime > 0) {
+            this.trackingTime--;
+            
+            // 计算到玩家的角度
+            const dx = playerX - this.x;
+            const dy = playerY - this.y;
+            const targetAngle = Math.atan2(dx, dy);
+            
+            // 平滑转向
+            const angleDiff = targetAngle - this.angle;
+            this.angle += angleDiff * 0.03;
+            
+            // 更新速度分量
+            this.vx = Math.sin(this.angle) * this.speed;
+            this.vy = Math.cos(this.angle) * this.speed;
+        }
+        
+        this.x += this.vx;
+        this.y += this.vy;
+        
+        // 出界检测
+        if (this.y > 800 || this.y < -50 || this.x < -50 || this.x > 550) {
+            this.active = false;
+        }
+    }
+    
+    getCollisionRect() {
+        return {
+            x: this.x - this.width / 2,
+            y: this.y - this.height / 2,
+            width: this.width,
+            height: this.height
+        };
+    }
+    
+    draw(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.angle);
+        
+        // 光晕
+        const glowSize = this.width * 1.5;
+        const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, glowSize);
+        glow.addColorStop(0, this.glowColor);
+        glow.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, glowSize, 0, Math.PI * 2);
+        ctx.fillStyle = glow;
+        ctx.fill();
+        
+        // 子弹主体
+        const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, this.width / 2);
+        gradient.addColorStop(0, '#ffffff');
+        gradient.addColorStop(0.5, this.color);
+        gradient.addColorStop(1, this.darkenColor(this.color, 60));
+        
+        ctx.beginPath();
+        ctx.arc(0, 0, this.width / 2, 0, Math.PI * 2);
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        
+        ctx.restore();
+    }
+    
+    darkenColor(color, amount) {
+        const hex = color.replace('#', '');
+        const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - amount);
+        const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - amount);
+        const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - amount);
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+}
+
+/**
+ * Boss类 - 大型Boss
+ */
+class Boss {
+    constructor(canvasWidth, canvasHeight, type) {
+        this.canvasWidth = canvasWidth;
+        this.canvasHeight = canvasHeight;
+        this.type = type;
+        
+        const config = BossConfig[type];
+        this.width = config.width;
+        this.height = config.height;
+        this.maxHealth = config.health;
+        this.health = config.health;
+        this.score = config.score;
+        this.color = config.color;
+        this.secondaryColor = config.secondaryColor;
+        this.name = config.name;
+        this.subtitle = config.subtitle;
+        this.moveSpeed = config.moveSpeed;
+        this.attackModes = config.attackModes;
+        
+        // 初始位置
+        this.x = canvasWidth / 2;
+        this.y = -this.height;
+        
+        // 移动状态
+        this.targetX = canvasWidth / 2;
+        this.targetY = 100; // 进入后的目标Y位置
+        this.moveDirection = 1; // 1向右，-1向左
+        this.speedX = 0;
+        this.speedY = 0;
+        
+        // 攻击状态
+        this.currentAttackModeIndex = 0;
+        this.attackModeTimer = 0;
+        this.shootTimer = 0;
+        this.spiralAngle = 0;
+        this.laserChargeTime = 0;
+        this.isLaserCharging = false;
+        
+        // Boss状态
+        this.active = true;
+        this.isEntering = true; // 是否正在进入战场
+        this.isDying = false;
+        this.deathTimer = 0;
+        
+        // 阶段判定（根据血量百分比）
+        this.phase = 1; // 1: >66%, 2: 33-66%, 3: <33%
+        
+        // 装饰角度
+        this.angle = 0;
+        
+        // 准备发射的子弹数组
+        this.pendingBullets = [];
+    }
+    
+    // 获取碰撞矩形
+    getCollisionRect() {
+        return {
+            x: this.x - this.width / 2,
+            y: this.y - this.height / 2,
+            width: this.width,
+            height: this.height
+        };
+    }
+    
+    // 更新阶段
+    updatePhase() {
+        const healthPercent = this.health / this.maxHealth;
+        
+        if (healthPercent <= 0.33) {
+            this.phase = 3;
+        } else if (healthPercent <= 0.66) {
+            this.phase = 2;
+        } else {
+            this.phase = 1;
+        }
+    }
+    
+    // 更新Boss
+    update(playerX, playerY) {
+        if (this.isDying) {
+            return this.updateDeath();
+        }
+        
+        if (this.isEntering) {
+            return this.updateEntering();
+        }
+        
+        // 更新阶段
+        this.updatePhase();
+        
+        // 移动逻辑
+        this.updateMovement();
+        
+        // 攻击逻辑
+        this.updateAttacks(playerX, playerY);
+        
+        // 装饰角度
+        this.angle += 0.01;
+    }
+    
+    // 进入动画
+    updateEntering() {
+        if (this.y < this.targetY) {
+            this.y += 2;
+        } else {
+            this.isEntering = false;
+            // 重置攻击计时器
+            this.attackModeTimer = 0;
+            this.shootTimer = 0;
+        }
+    }
+    
+    // 死亡动画
+    updateDeath() {
+        this.deathTimer++;
+        
+        // 持续生成爆炸效果由外部处理
+        if (this.deathTimer > 180) {
+            this.active = false;
+        }
+        
+        return true; // 表示正在死亡
+    }
+    
+    // 开始死亡
+    startDeath() {
+        this.isDying = true;
+        this.deathTimer = 0;
+    }
+    
+    // 移动逻辑
+    updateMovement() {
+        // 左右摆动
+        const moveRange = 80;
+        const centerX = this.canvasWidth / 2;
+        
+        // 根据阶段调整移动速度
+        const phaseMultiplier = 1 + (this.phase - 1) * 0.3;
+        const currentSpeed = this.moveSpeed * phaseMultiplier;
+        
+        this.x += this.moveDirection * currentSpeed;
+        
+        // 到达边界时改变方向
+        if (this.x > centerX + moveRange) {
+            this.moveDirection = -1;
+        } else if (this.x < centerX - moveRange) {
+            this.moveDirection = 1;
+        }
+        
+        // 第3阶段：向玩家方向轻微移动
+        if (this.phase >= 3) {
+            const dx = playerX - this.x;
+            this.x += dx * 0.005;
+        }
+    }
+    
+    // 攻击逻辑
+    updateAttacks(playerX, playerY) {
+        const currentMode = this.attackModes[this.currentAttackModeIndex];
+        const phaseMultiplier = 1 + (this.phase - 1) * 0.2; // 阶段越高，攻击越快
+        
+        this.attackModeTimer++;
+        this.shootTimer++;
+        
+        // 检查是否需要切换攻击模式
+        if (this.attackModeTimer >= currentMode.duration) {
+            this.currentAttackModeIndex = (this.currentAttackModeIndex + 1) % this.attackModes.length;
+            this.attackModeTimer = 0;
+            this.shootTimer = 0;
+            return;
+        }
+        
+        // 检查是否需要射击
+        const adjustedShootDelay = Math.floor(currentMode.shootDelay / phaseMultiplier);
+        
+        if (this.shootTimer >= adjustedShootDelay) {
+            this.shootTimer = 0;
+            this.executeAttack(currentMode.mode, playerX, playerY);
+        }
+    }
+    
+    // 执行攻击
+    executeAttack(mode, playerX, playerY) {
+        this.pendingBullets = [];
+        
+        switch (mode) {
+            case BossAttackMode.NORMAL:
+                this.attackNormal(playerX, playerY);
+                break;
+            case BossAttackMode.SPREAD:
+                this.attackSpread();
+                break;
+            case BossAttackMode.SPIRAL:
+                this.attackSpiral();
+                break;
+            case BossAttackMode.CROSS:
+                this.attackCross(playerX, playerY);
+                break;
+            case BossAttackMode.LASER:
+                this.attackLaser(playerX, playerY);
+                break;
+        }
+    }
+    
+    // 普通攻击：向下发射多发子弹
+    attackNormal(playerX, playerY) {
+        const bulletCount = 3 + this.phase; // 阶段越高，子弹越多
+        const spread = 30;
+        
+        for (let i = 0; i < bulletCount; i++) {
+            const offset = (i - (bulletCount - 1) / 2) * spread;
+            const angle = Math.atan2(offset, 100); // 稍微向外扩散
+            
+            this.pendingBullets.push(new BossBullet(
+                this.x + offset * 0.5,
+                this.y + this.height / 2,
+                angle,
+                BossBulletType.NORMAL
+            ));
+        }
+    }
+    
+    // 扇形散射：大角度扇形发射
+    attackSpread() {
+        const bulletCount = 7 + this.phase * 2;
+        const spreadAngle = Math.PI / 2; // 90度
+        const startAngle = Math.PI / 2 - spreadAngle / 2;
+        
+        for (let i = 0; i < bulletCount; i++) {
+            const angle = startAngle + (spreadAngle * i) / (bulletCount - 1);
+            
+            // 转换为我们的坐标系（0向下）
+            const adjustedAngle = angle - Math.PI / 2;
+            
+            this.pendingBullets.push(new BossBullet(
+                this.x,
+                this.y + this.height / 2,
+                adjustedAngle,
+                BossBulletType.LARGE,
+                3
+            ));
+        }
+    }
+    
+    // 螺旋弹幕
+    attackSpiral() {
+        this.spiralAngle += 0.15 * this.phase;
+        
+        const armCount = 3 + this.phase; // 螺旋臂数量
+        
+        for (let i = 0; i < armCount; i++) {
+            const angle = this.spiralAngle + (Math.PI * 2 * i) / armCount;
+            
+            this.pendingBullets.push(new BossBullet(
+                this.x,
+                this.y + this.height / 2,
+                angle,
+                BossBulletType.FAST,
+                3.5
+            ));
+        }
+    }
+    
+    // 十字/米字弹幕 + 追踪弹
+    attackCross(playerX, playerY) {
+        // 米字发射
+        const directions = [
+            0, Math.PI / 4, Math.PI / 2, 3 * Math.PI / 4,
+            Math.PI, 5 * Math.PI / 4, 3 * Math.PI / 2, 7 * Math.PI / 4
+        ];
+        
+        directions.forEach(dir => {
+            this.pendingBullets.push(new BossBullet(
+                this.x,
+                this.y,
+                dir,
+                BossBulletType.LARGE,
+                2.5
+            ));
+        });
+        
+        // 额外发射1-2发追踪弹
+        if (this.phase >= 2) {
+            this.pendingBullets.push(new BossBullet(
+                this.x,
+                this.y + this.height / 2,
+                0,
+                BossBulletType.TRACKING,
+                3
+            ));
+        }
+    }
+    
+    // 激光瞄准：先瞄准，然后发射密集弹幕
+    attackLaser(playerX, playerY) {
+        // 计算到玩家的角度
+        const dx = playerX - this.x;
+        const dy = playerY - this.y;
+        const baseAngle = Math.atan2(dx, dy);
+        
+        // 发射密集的直线弹幕
+        const bulletCount = 8 + this.phase * 2;
+        
+        for (let i = 0; i < bulletCount; i++) {
+            const offsetX = (i - (bulletCount - 1) / 2) * 8;
+            const angleVariation = (Math.random() - 0.5) * 0.1;
+            
+            this.pendingBullets.push(new BossBullet(
+                this.x + offsetX,
+                this.y + this.height / 2,
+                baseAngle + angleVariation,
+                BossBulletType.FAST,
+                5
+            ));
+        }
+    }
+    
+    // 获取待发射的子弹
+    getPendingBullets() {
+        const bullets = [...this.pendingBullets];
+        this.pendingBullets = [];
+        return bullets;
+    }
+    
+    // 受到伤害
+    takeDamage(amount) {
+        if (this.isDying || this.isEntering) return false;
+        
+        this.health -= amount;
+        
+        // 受到伤害时的视觉效果可以由外部处理
+        
+        if (this.health <= 0) {
+            this.health = 0;
+            this.startDeath();
+            return true;
+        }
+        
+        return false;
+    }
+    
+    // 绘制Boss
+    draw(ctx) {
+        if (this.isDying) {
+            // 死亡时闪烁效果
+            if (Math.floor(this.deathTimer / 5) % 2 === 0) {
+                this.drawBossBody(ctx);
+            }
+        } else {
+            this.drawBossBody(ctx);
+            
+            // 如果正在进入，不显示额外效果
+            if (!this.isEntering) {
+                this.drawBossEffects(ctx);
+            }
+        }
+    }
+    
+    // 绘制Boss主体
+    drawBossBody(ctx) {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        // 主体 - 大型战舰形状
+        const bodyWidth = this.width;
+        const bodyHeight = this.height;
+        
+        // 主体阴影
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.beginPath();
+        ctx.ellipse(5, 5, bodyWidth / 2, bodyHeight / 2, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 主体渐变
+        const bodyGradient = ctx.createRadialGradient(0, -20, 0, 0, 0, bodyWidth / 2);
+        bodyGradient.addColorStop(0, this.secondaryColor);
+        bodyGradient.addColorStop(0.5, this.color);
+        bodyGradient.addColorStop(1, this.darkenColor(this.color, 80));
+        
+        ctx.fillStyle = bodyGradient;
+        
+        // 绘制复杂的战舰形状
+        ctx.beginPath();
+        // 顶部（舰艏）
+        ctx.moveTo(0, -bodyHeight / 2);
+        ctx.lineTo(-bodyWidth / 2 * 0.3, -bodyHeight / 2 * 0.5);
+        // 左翼
+        ctx.lineTo(-bodyWidth / 2, bodyHeight / 4);
+        ctx.lineTo(-bodyWidth / 2 * 0.4, bodyHeight / 2 * 0.7);
+        // 底部
+        ctx.lineTo(0, bodyHeight / 2);
+        // 右翼
+        ctx.lineTo(bodyWidth / 2 * 0.4, bodyHeight / 2 * 0.7);
+        ctx.lineTo(bodyWidth / 2, bodyHeight / 4);
+        ctx.lineTo(bodyWidth / 2 * 0.3, -bodyHeight / 2 * 0.5);
+        ctx.closePath();
+        
+        ctx.fill();
+        
+        // 描边
+        ctx.strokeStyle = this.secondaryColor;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // 核心 - 发光的核心
+        const coreSize = bodyWidth * 0.15;
+        const coreGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, coreSize * 2);
+        coreGlow.addColorStop(0, 'rgba(255, 255, 255, 0.9)');
+        coreGlow.addColorStop(0.3, this.secondaryColor);
+        coreGlow.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        ctx.fillStyle = coreGlow;
+        ctx.beginPath();
+        ctx.arc(0, 0, coreSize * 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(0, 0, coreSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 引擎发光（底部）
+        const engineCount = 3;
+        const engineWidth = bodyWidth * 0.12;
+        
+        for (let i = 0; i < engineCount; i++) {
+            const ex = (i - 1) * bodyWidth * 0.2;
+            const ey = bodyHeight / 2 * 0.6;
+            
+            // 引擎火焰
+            const flameHeight = 20 + Math.sin(this.angle * 10 + i) * 8;
+            const flameGradient = ctx.createLinearGradient(ex, ey, ex, ey + flameHeight);
+            flameGradient.addColorStop(0, this.secondaryColor);
+            flameGradient.addColorStop(0.5, '#ff6600');
+            flameGradient.addColorStop(1, 'rgba(255, 100, 0, 0)');
+            
+            ctx.fillStyle = flameGradient;
+            ctx.beginPath();
+            ctx.ellipse(ex, ey + flameHeight / 2, engineWidth / 2, flameHeight / 2, 0, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
+        ctx.restore();
+    }
+    
+    // 绘制Boss特效（护盾、阶段指示等）
+    drawBossEffects(ctx) {
+        // 根据阶段显示不同的光环
+        const auraRadius = this.width * 0.7;
+        const pulseScale = 1 + Math.sin(Date.now() / 500) * 0.05;
+        
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        
+        // 阶段光环
+        let auraColor;
+        if (this.phase === 1) {
+            auraColor = 'rgba(255, 100, 100, 0.15)';
+        } else if (this.phase === 2) {
+            auraColor = 'rgba(255, 150, 0, 0.2)';
+        } else {
+            auraColor = 'rgba(255, 0, 0, 0.25)';
+        }
+        
+        const auraGradient = ctx.createRadialGradient(0, 0, auraRadius * 0.5, 0, 0, auraRadius * pulseScale);
+        auraGradient.addColorStop(0, 'rgba(255, 255, 255, 0)');
+        auraGradient.addColorStop(0.7, auraColor);
+        auraGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        
+        ctx.fillStyle = auraGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, auraRadius * pulseScale, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // 第3阶段：额外的警告效果
+        if (this.phase >= 3) {
+            const warningPulse = Math.sin(Date.now() / 200) * 0.5 + 0.5;
+            
+            ctx.strokeStyle = `rgba(255, 0, 0, ${warningPulse * 0.5})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, auraRadius * pulseScale * 1.1, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+    
+    // 颜色变暗
+    darkenColor(color, amount) {
+        const hex = color.replace('#', '');
+        const r = Math.max(0, parseInt(hex.substr(0, 2), 16) - amount);
+        const g = Math.max(0, parseInt(hex.substr(2, 2), 16) - amount);
+        const b = Math.max(0, parseInt(hex.substr(4, 2), 16) - amount);
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+}
+
+/**
+ * Boss血条类
+ */
+class BossHealthBar {
+    constructor() {
+        this.active = false;
+        this.boss = null;
+        this.enterAnimation = 0;
+    }
+    
+    activate(boss) {
+        this.active = true;
+        this.boss = boss;
+        this.enterAnimation = 0;
+    }
+    
+    deactivate() {
+        this.active = false;
+        this.boss = null;
+    }
+    
+    update() {
+        if (this.active && this.enterAnimation < 1) {
+            this.enterAnimation += 0.03;
+        }
+    }
+    
+    draw(ctx, canvasWidth) {
+        if (!this.active || !this.boss) return;
+        
+        const animProgress = Math.min(1, this.enterAnimation);
+        
+        // 位置：屏幕顶部，安全区域内
+        const x = canvasWidth / 2;
+        const y = 35;
+        const barWidth = 350;
+        const barHeight = 24;
+        
+        ctx.save();
+        ctx.globalAlpha = animProgress;
+        
+        // Boss名称
+        ctx.fillStyle = '#ff4444';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${this.boss.name} - ${this.boss.subtitle}`, x, y - 18);
+        
+        // 血条背景
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(x - barWidth / 2, y, barWidth, barHeight);
+        
+        // 血条边框
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x - barWidth / 2, y, barWidth, barHeight);
+        
+        // 血量百分比
+        const healthPercent = Math.max(0, this.boss.health / this.boss.maxHealth);
+        const fillWidth = barWidth * healthPercent;
+        
+        // 根据血量百分比改变颜色
+        let fillColor;
+        if (healthPercent > 0.66) {
+            fillColor = '#44ff44'; // 绿色
+        } else if (healthPercent > 0.33) {
+            fillColor = '#ffaa00'; // 黄色
+        } else {
+            fillColor = '#ff4444'; // 红色
+        }
+        
+        // 血量填充
+        const fillGradient = ctx.createLinearGradient(
+            x - barWidth / 2, y,
+            x - barWidth / 2, y + barHeight
+        );
+        fillGradient.addColorStop(0, fillColor);
+        fillGradient.addColorStop(0.5, this.lightenColor(fillColor, 40));
+        fillGradient.addColorStop(1, fillColor);
+        
+        ctx.fillStyle = fillGradient;
+        ctx.fillRect(x - barWidth / 2, y, fillWidth, barHeight);
+        
+        // 血量文字
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        const currentHealth = Math.ceil(this.boss.health);
+        const maxHealth = this.boss.maxHealth;
+        ctx.fillText(
+            `${currentHealth} / ${maxHealth} (${Math.floor(healthPercent * 100)}%)`,
+            x, y + barHeight / 2 + 4
+        );
+        
+        // 阶段指示
+        let phaseText = '';
+        if (this.boss.phase === 1) {
+            phaseText = '阶段 1';
+        } else if (this.boss.phase === 2) {
+            phaseText = '阶段 2 - 强化中';
+        } else {
+            phaseText = '阶段 3 - 狂暴！';
+        }
+        
+        ctx.fillStyle = this.boss.phase >= 3 ? '#ff4444' : '#aaaaaa';
+        ctx.font = '11px Arial';
+        ctx.fillText(phaseText, x, y + barHeight + 14);
+        
+        ctx.restore();
+    }
+    
+    lightenColor(color, amount) {
+        const hex = color.replace('#', '');
+        const r = Math.min(255, parseInt(hex.substr(0, 2), 16) + amount);
+        const g = Math.min(255, parseInt(hex.substr(2, 2), 16) + amount);
+        const b = Math.min(255, parseInt(hex.substr(4, 2), 16) + amount);
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+}
